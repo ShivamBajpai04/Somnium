@@ -42,7 +42,7 @@ export function Sidebar() {
       onMouseLeave={() => !isPinned && setIsHovered(false)}
     >
       <div className="flex justify-between items-center p-4 border-b">
-        <h2 className="text-xl font-bold">AI Chat</h2>
+        <h2 className="text-xl font-bold">CHO-2 AI</h2>
         <Button
           variant="ghost"
           size="icon"
