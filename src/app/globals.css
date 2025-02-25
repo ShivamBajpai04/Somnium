@@ -168,3 +168,142 @@
 .capsule-button:hover {
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
+
+.prose pre {
+  background-color: rgb(30, 41, 59) !important;
+  color: #fff !important;
+  padding: 1rem !important;
+  border-radius: 0.5rem !important;
+}
+
+.prose code {
+  background-color: rgba(0, 0, 0, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.prose {
+  max-width: none !important;
+}
+
+.prose p {
+  margin: 0.5em 0;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  margin: 1em 0 0.5em 0;
+}
+
+/* Code block styles */
+pre[class*="language-"] {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  text-shadow: none !important;
+  padding: 1.5rem !important;
+  margin: 1rem 0 !important;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: #6b7280;
+}
+
+.token.punctuation {
+  color: #e2e8f0;
+}
+
+.token.namespace {
+  opacity: 0.7;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol {
+  color: #93c5fd;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin {
+  color: #86efac;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  color: #e2e8f0;
+  background: transparent;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  color: #93c5fd;
+}
+
+.token.function,
+.token.class-name {
+  color: #fca5a5;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  color: #f472b6;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.prose :where(code):not(:where([class~="not-prose"] *)) {
+  font-weight: normal !important;
+}
+
+/* Add to your existing styles */
+.thinking-collapse-enter {
+  max-height: 0;
+  opacity: 0;
+}
+
+.thinking-collapse-enter-active {
+  max-height: 1000px;
+  opacity: 1;
+  transition: all 200ms ease-in;
+}
+
+.thinking-collapse-exit {
+  max-height: 1000px;
+  opacity: 1;
+}
+
+.thinking-collapse-exit-active {
+  max-height: 0;
+  opacity: 0;
+  transition: all 200ms ease-out;
+}

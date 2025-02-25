@@ -1,208 +1,354 @@
-import { ScrollArea } from "./ui/scroll-area"
-import { useEffect, useRef, useState } from "react"
-import ReactMarkdown from 'react-markdown'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { ChevronDown, ChevronRight, Copy, Check } from 'lucide-react'
+"use client"
+
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "./ui/button"
+import { Input } from "./ui/input"
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
+import { Loader2, Check, Copy, ChevronDown, ChevronUp } from "lucide-react"
+import Prism from 'prismjs'
+import "prismjs/themes/prism-tomorrow.css"
+import "prismjs/components/prism-javascript"
+import "prismjs/components/prism-python"
+import "prismjs/components/prism-java"
+import "prismjs/components/prism-c"
+import "prismjs/components/prism-cpp"
+import "prismjs/components/prism-csharp"
+import "prismjs/components/prism-typescript"
+import "prismjs/components/prism-bash"
+import "prismjs/components/prism-json"
+import "prismjs/components/prism-sql"
+import "prismjs/components/prism-yaml"
+import "prismjs/components/prism-markdown"
 
-export function ChatArea({ messages, onStopGeneration }) {
-  const scrollRef = useRef(null);
-  const [openThinkBlocks, setOpenThinkBlocks] = useState(new Set());
-  const [copiedCode, setCopiedCode] = useState(null);
+export default function ChatArea() {
+  const [message, setMessage] = useState("")
+  const [chatId, setChatId] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [currentResponse, setCurrentResponse] = useState("")
+  const [thinking, setThinking] = useState(false)
 
+  // Load chat history on mount
   useEffect(() => {
-    // Scroll to bottom when messages change
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    loadChats()
+  }, [])
+
+  async function loadChats() {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/chat")
+      if (!response.ok) throw new Error('Failed to load chats')
+      
+      const chats = await response.json()
+      if (chats.length > 0) {
+        setChatId(chats[0]._id)
+        setMessages(chats[0].messages)
+      }
+    } catch (error) {
+      console.error("Failed to load chats:", error)
+      setError("Failed to load chat history")
+    } finally {
+      setLoading(false)
     }
-  }, [messages]);
+  }
 
-  // Debug log to see message updates
-  console.log('Rendering messages:', messages);
+  async function sendMessage(e) {
+    e.preventDefault()
+    if (!message.trim()) return
 
-  const copyToClipboard = async (code, id) => {
-    await navigator.clipboard.writeText(code);
-    setCopiedCode(id);
-    setTimeout(() => setCopiedCode(null), 2000);
-  };
+    setLoading(true)
+    setError(null)
+    setCurrentResponse("")
+    setThinking(true)
+    
+    // Add user message immediately
+    setMessages(prev => [...prev, { role: "user", content: message }])
+    const currentMessage = message
+    setMessage("")
+    
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: currentMessage,
+          chatId,
+          context: "You are CHO-2, an advanced AI assistant. Format your responses using markdown when appropriate. Use code blocks with language specification for code. Be concise but thorough."
+        })
+      })
 
-  const renderContent = (content, messageId) => {
-    // Check if content contains a thinking block
-    const thinkMatch = content.match(/<think>(.*?)<\/think>/s);
-    if (thinkMatch) {
-      const thinkingContent = thinkMatch[1];
-      const actualContent = content.split('</think>')[1];
-      const isOpen = openThinkBlocks.has(messageId);
+      if (!response.ok) throw new Error('Failed to send message')
+      setThinking(false)
 
-      return (
-        <>
-          <details
-            open={isOpen}
-            onToggle={(e) => {
-              if (e.target.open) {
-                setOpenThinkBlocks(prev => new Set([...prev, messageId]));
-              } else {
-                setOpenThinkBlocks(prev => {
-                  const newSet = new Set(prev);
-                  newSet.delete(messageId);
-                  return newSet;
-                });
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let aiResponse = ""
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        
+        const text = decoder.decode(value)
+        const lines = text.split('\n')
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(5))
+              if (data.content) {
+                aiResponse += data.content
+                setCurrentResponse(aiResponse)
               }
-            }}
-            className="mb-2"
-          >
-            <summary className="flex items-center gap-1 text-gray-500 italic mb-1 hover:text-gray-700 transition-colors cursor-pointer">
-              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              Thinking process
-            </summary>
-            <div className="text-gray-500 italic pl-5">
-              <ReactMarkdown
-                components={{
-                  code({ node, inline, className, children, ...props }) {
-                    const match = /language-(\w+)/.exec(className || '');
-                    const codeId = `${messageId}-think-${Math.random()}`;
-                    return !inline && match ? (
-                      <div className="relative group">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => copyToClipboard(String(children), codeId)}
-                        >
-                          {copiedCode === codeId ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <SyntaxHighlighter
-                          style={vscDarkPlus}
-                          language={match[1]}
-                          PreTag="div"
-                          {...props}
-                        >
-                          {String(children).replace(/\n$/, '')}
-                        </SyntaxHighlighter>
-                      </div>
-                    ) : (
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    );
-                  }
-                }}
-              >
-                {thinkingContent.trim()}
-              </ReactMarkdown>
-            </div>
-          </details>
-          {actualContent && (
-            <ReactMarkdown
-              components={{
-                code({ node, inline, className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const codeId = `${messageId}-main-${Math.random()}`;
-                  return !inline && match ? (
-                    <div className="relative group">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => copyToClipboard(String(children), codeId)}
-                      >
-                        {copiedCode === codeId ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <SyntaxHighlighter
-                        style={vscDarkPlus}
-                        language={match[1]}
-                        PreTag="div"
-                        {...props}
-                      >
-                        {String(children).replace(/\n$/, '')}
-                      </SyntaxHighlighter>
-                    </div>
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  );
-                }
-              }}
-            >
-              {actualContent.trim()}
-            </ReactMarkdown>
-          )}
-        </>
-      );
-    }
-
-    // If no think block, just render as markdown with syntax highlighting
-    return (
-      <ReactMarkdown
-        components={{
-          code({ node, inline, className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || '');
-            const codeId = `${messageId}-${Math.random()}`;
-            return !inline && match ? (
-              <div className="relative group">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => copyToClipboard(String(children), codeId)}
-                >
-                  {copiedCode === codeId ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-                <SyntaxHighlighter
-                  style={vscDarkPlus}
-                  language={match[1]}
-                  PreTag="div"
-                  {...props}
-                >
-                  {String(children).replace(/\n$/, '')}
-                </SyntaxHighlighter>
-              </div>
-            ) : (
-              <code className={className} {...props}>
-                {children}
-              </code>
-            );
+            } catch (e) {
+              console.error('Error parsing line:', line, e)
+            }
           }
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    );
-  };
+        }
+      }
 
-  return (
-    <ScrollArea className="flex-1 p-4">
-      {messages.map((message) => (
-        <div
-          key={message.id}
-          className={`mb-4 ${message.role === "user" ? "text-right" : "text-left"}`}
+      // Add final AI response to messages
+      setMessages(prev => [...prev, { role: "assistant", content: aiResponse }])
+      
+    } catch (error) {
+      console.error("Failed to send message:", error)
+      setError("Failed to send message")
+    } finally {
+      setLoading(false)
+      setCurrentResponse("")
+      setThinking(false)
+    }
+  }
+
+  function CodeBlock({ language, value }) {
+    const [copied, setCopied] = useState(false)
+
+    useEffect(() => {
+      if (value) {
+        Prism.highlightAll()
+      }
+    }, [value])
+
+    const copyCode = useCallback(() => {
+      if (value) {
+        navigator.clipboard.writeText(value)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }
+    }, [value])
+
+    if (!value) return null
+
+    return (
+      <div className="relative group">
+        <pre className={`language-${language || 'plaintext'} rounded-md !p-4`}>
+          <code className={`language-${language || 'plaintext'}`}>
+            {value}
+          </code>
+        </pre>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={copyCode}
         >
-          <div
-            className={`inline-block p-2 rounded-lg ${message.role === "user"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-black"
-              }`}
-          >
-            {renderContent(message.content, message.id)}
+          {copied ? (
+            <Check className="h-4 w-4 text-green-500" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+    )
+  }
+
+  function CollapsibleThinking({ content }) {
+    const [isOpen, setIsOpen] = useState(false)
+
+    return (
+      <div className="border-l-4 border-blue-500 pl-4 my-2">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="flex items-center gap-2 text-blue-500 hover:text-blue-600 transition-colors"
+        >
+          {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          <span className="font-medium">Thinking Process</span>
+        </button>
+        <div
+          className={`overflow-hidden transition-all duration-200 ${
+            isOpen ? "max-h-96" : "max-h-0"
+          }`}
+        >
+          <div className="py-2 text-gray-600">
+            <MessageContent content={content} />
           </div>
         </div>
-      ))}
-      <div ref={scrollRef} />
-    </ScrollArea>
-  );
+      </div>
+    )
+  }
+
+  function MessageContent({ content }) {
+    if (!content) return null;
+    
+    // Handle thinking sections
+    const parts = content.split(/<think>|<\/think>/)
+    if (parts.length > 1) {
+      return (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          {parts.map((part, index) => {
+            if (index % 2 === 1) {
+              // This is a thinking section
+              return <CollapsibleThinking key={index} content={part} />
+            } else {
+              // This is regular content
+              return part && (
+                <ReactMarkdown
+                  key={index}
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
+                  components={{
+                    pre: ({ children }) => <>{children}</>,
+                    code: ({ node, inline, className, children, ...props }) => {
+                      const match = /language-(\w+)/.exec(className || '')
+                      const language = match ? match[1] : ''
+                      
+                      if (inline) {
+                        return (
+                          <code className="bg-gray-200 dark:bg-gray-800 rounded px-1 py-0.5" {...props}>
+                            {children}
+                          </code>
+                        )
+                      }
+
+                      return (
+                        <CodeBlock
+                          language={language}
+                          value={String(children).replace(/\n$/, '')}
+                        />
+                      )
+                    }
+                  }}
+                >
+                  {String(part)}
+                </ReactMarkdown>
+              )
+            }
+          })}
+        </div>
+      )
+    }
+
+    // Regular message without thinking sections
+    return (
+      <div className="prose prose-sm dark:prose-invert max-w-none">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw]}
+          components={{
+            pre: ({ children }) => <>{children}</>,
+            code: ({ node, inline, className, children, ...props }) => {
+              const match = /language-(\w+)/.exec(className || '')
+              const language = match ? match[1] : ''
+              
+              if (inline) {
+                return (
+                  <code className="bg-gray-200 dark:bg-gray-800 rounded px-1 py-0.5" {...props}>
+                    {children}
+                  </code>
+                )
+              }
+
+              return (
+                <CodeBlock
+                  language={language}
+                  value={String(children).replace(/\n$/, '')}
+                />
+              )
+            }
+          }}
+        >
+          {String(content)}
+        </ReactMarkdown>
+      </div>
+    )
+  }
+
+  if (loading && messages.length === 0) {
+    return <div className="flex-1 flex items-center justify-center">Loading...</div>
+  }
+
+  if (error && messages.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-red-500">
+        {error}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-white rounded-lg shadow-lg">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`flex ${
+              msg.role === "user" ? "justify-end" : "justify-start"
+            }`}
+          >
+            <div
+              className={`max-w-[80%] rounded-lg p-3 ${
+                msg.role === "user"
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-100 text-black"
+              }`}
+            >
+              {msg.role === "assistant" ? (
+                <MessageContent content={msg.content} />
+              ) : (
+                msg.content
+              )}
+            </div>
+          </div>
+        ))}
+        {thinking && (
+          <div className="flex justify-start">
+            <div className="bg-gray-100 text-black max-w-[80%] rounded-lg p-3 flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Thinking...
+            </div>
+          </div>
+        )}
+        {currentResponse && (
+          <div className="flex justify-start">
+            <div className="bg-gray-100 text-black max-w-[80%] rounded-lg p-3">
+              <MessageContent content={currentResponse} />
+            </div>
+          </div>
+        )}
+        {error && (
+          <div className="flex justify-center">
+            <div className="text-red-500">{error}</div>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={sendMessage} className="p-4 border-t">
+        <div className="flex gap-2">
+          <Input
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Type your message..."
+            disabled={loading}
+            className="flex-1"
+          />
+          <Button type="submit" disabled={loading}>
+            {loading ? "Sending..." : "Send"}
+          </Button>
+        </div>
+      </form>
+    </div>
+  )
 }
 

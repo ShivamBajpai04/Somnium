@@ -17,8 +17,14 @@ export default function Home() {
           scene="https://prod.spline.design/DTnlUz1FEiMH6QC9/scene.splinecode"
         />
       </div>
+      {/* <Button
+        onClick={() => router.push('/pricing')}
+        className="absolute right-24 top-[45vh] capsule-button"
+      >
+        <span className="text-2xl">Pricing</span>
+      </Button> */}
 
-      <h1 className="absolute right-24 top-[30vh] text-5xl font-bold text-white font-tech drop-shadow-glow text-center">
+      <h1 className="absolute right-24 top-[30vh] text-5xl font-bold text-black font-tech drop-shadow-glow text-center">
         CHO-2 AI
       </h1>
 
@@ -41,7 +47,7 @@ export default function Home() {
       <SignedIn>
         <Button
           onClick={() => router.push('/chat')}
-          className="absolute right-24 top-[45vh] capsule-button"
+          className="absolute left-20 top-[45vh] capsule-button"
         >
           <span className="text-2xl">Chat</span>
         </Button>
