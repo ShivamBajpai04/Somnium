@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Button } from "./ui/button"
 import { PinIcon, PinOffIcon, Plus } from "lucide-react"
 import { UserButton } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
 
 const presetPrompts = [
   "Tell me a joke",
@@ -12,7 +13,8 @@ const presetPrompts = [
   "Describe the taste of an apple",
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ currentChatId }) {
+  const router = useRouter()
   const [isHovered, setIsHovered] = useState(false)
   const [isPinned, setIsPinned] = useState(true)
   const [chats, setChats] = useState([])
@@ -50,6 +52,30 @@ export default function Sidebar() {
     }
   }
 
+  async function handleNewChat(prompt) {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: prompt || "New Chat",
+          context: "Starting a new conversation"
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to create new chat')
+      
+      const data = await response.json()
+      
+      // Navigate to the new chat
+      router.push(`/chat/${data.chatId}`)
+    } catch (error) {
+      console.error("Failed to create new chat:", error)
+    }
+  }
+
   const shouldShow = isPinned || isHovered
 
   return (
@@ -83,7 +109,7 @@ export default function Sidebar() {
           <Button
             variant="outline"
             className="w-full flex items-center gap-2"
-            onClick={() => window.location.reload()}
+            onClick={() => handleNewChat()}
           >
             <Plus className="h-4 w-4" />
             New Chat
@@ -102,6 +128,7 @@ export default function Sidebar() {
                 key={chat._id}
                 variant="ghost"
                 className="w-full justify-start text-left text-sm text-gray-600 hover:text-gray-900 truncate"
+                onClick={() => router.push(`/chat/${chat._id}`)}
               >
                 {chat.title}
               </Button>
@@ -115,6 +142,7 @@ export default function Sidebar() {
             <li
               key={index}
               className="text-sm text-blue-600 cursor-pointer hover:underline mb-1"
+              onClick={() => handleNewChat(prompt)}
             >
               {prompt}
             </li>

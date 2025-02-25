@@ -55,7 +55,7 @@ export class ChatService {
   }
 
   formatPrompt(message, history, context) {
-    const systemPrompt = `You are CHO-2, an advanced AI assistant. When you need to think or process something complex, wrap that section in <think> tags. ${context}`;
+    const systemPrompt = `You are CHO-2, an advanced AI assistant. When you need to think or process something complex, wrap that section in <think> tags. Format your responses using markdown when appropriate. Use code blocks with language specification for code. Be concise but thorough. ${context}`;
 
     const recentHistory = history
       .slice(-5)

@@ -22,19 +22,39 @@ import "prismjs/components/prism-sql"
 import "prismjs/components/prism-yaml"
 import "prismjs/components/prism-markdown"
 
-export default function ChatArea() {
+export default function ChatArea({ initialChatId }) {
   const [message, setMessage] = useState("")
-  const [chatId, setChatId] = useState(null)
+  const [chatId, setChatId] = useState(initialChatId)
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [currentResponse, setCurrentResponse] = useState("")
   const [thinking, setThinking] = useState(false)
 
-  // Load chat history on mount
   useEffect(() => {
-    loadChats()
-  }, [])
+    if (initialChatId) {
+      loadChat(initialChatId)
+    } else {
+      loadChats()
+    }
+  }, [initialChatId])
+
+  async function loadChat(id) {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/chat/${id}`)
+      if (!response.ok) throw new Error('Failed to load chat')
+      
+      const chat = await response.json()
+      setChatId(chat._id)
+      setMessages(chat.messages)
+    } catch (error) {
+      console.error("Failed to load chat:", error)
+      setError("Failed to load chat")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   async function loadChats() {
     try {
@@ -204,35 +224,37 @@ export default function ChatArea() {
             } else {
               // This is regular content
               return part && (
-                <ReactMarkdown
-                  key={index}
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
-                  components={{
-                    pre: ({ children }) => <>{children}</>,
-                    code: ({ node, inline, className, children, ...props }) => {
-                      const match = /language-(\w+)/.exec(className || '')
-                      const language = match ? match[1] : ''
-                      
-                      if (inline) {
+                <div key={index}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                      p: ({ children }) => <div className="my-2">{children}</div>,
+                      pre: ({ children }) => <div className="my-4">{children}</div>,
+                      code: ({ node, inline, className, children, ...props }) => {
+                        const match = /language-(\w+)/.exec(className || '')
+                        const language = match ? match[1] : ''
+                        
+                        if (inline) {
+                          return (
+                            <code className="bg-gray-200 dark:bg-gray-800 rounded px-1 py-0.5" {...props}>
+                              {children}
+                            </code>
+                          )
+                        }
+
                         return (
-                          <code className="bg-gray-200 dark:bg-gray-800 rounded px-1 py-0.5" {...props}>
-                            {children}
-                          </code>
+                          <CodeBlock
+                            language={language}
+                            value={String(children).replace(/\n$/, '')}
+                          />
                         )
                       }
-
-                      return (
-                        <CodeBlock
-                          language={language}
-                          value={String(children).replace(/\n$/, '')}
-                        />
-                      )
-                    }
-                  }}
-                >
-                  {String(part)}
-                </ReactMarkdown>
+                    }}
+                  >
+                    {String(part)}
+                  </ReactMarkdown>
+                </div>
               )
             }
           })}
@@ -247,7 +269,8 @@ export default function ChatArea() {
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}
           components={{
-            pre: ({ children }) => <>{children}</>,
+            p: ({ children }) => <div className="my-2">{children}</div>,
+            pre: ({ children }) => <div className="my-4">{children}</div>,
             code: ({ node, inline, className, children, ...props }) => {
               const match = /language-(\w+)/.exec(className || '')
               const language = match ? match[1] : ''

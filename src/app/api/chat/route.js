@@ -14,34 +14,30 @@ export async function POST(req) {
     await connectDB();
     const { message, chatId, context } = await req.json();
 
-    // Create chat service instance for this user
     const chatService = new ChatService(userId);
-
-    // Get or create chat in database
+    
     let chatRecord;
     if (chatId) {
       chatRecord = await Chat.findById(chatId);
       if (!chatRecord || chatRecord.userId !== userId) {
-        // Create new chat if not found or not owned
         chatRecord = await Chat.create({
           userId,
           title: message.slice(0, 30) + "...",
-          messages: [],
+          messages: []
         });
       }
     } else {
-      // Create new chat
       chatRecord = await Chat.create({
         userId,
         title: message.slice(0, 30) + "...",
-        messages: [],
+        messages: []
       });
     }
 
     // Store the user message
     chatRecord.messages.push({
       content: message,
-      role: "user",
+      role: "user"
     });
     await chatRecord.save();
 
@@ -53,23 +49,19 @@ export async function POST(req) {
     const transformStream = new TransformStream({
       async transform(chunk, controller) {
         const text = decoder.decode(chunk);
-        const lines = text.split("\n");
+        const lines = text.split('\n');
 
         for (const line of lines) {
-          if (line.trim() === "") continue;
-
+          if (line.trim() === '') continue;
+          
           try {
             const data = JSON.parse(line);
             if (data.response) {
               fullResponse += data.response;
-              controller.enqueue(
-                encoder.encode(
-                  `data: ${JSON.stringify({ content: data.response })}\n\n`
-                )
-              );
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: data.response })}\n\n`));
             }
           } catch (e) {
-            console.error("Error parsing line:", line, e);
+            console.error('Error parsing line:', line, e);
           }
         }
       },
@@ -77,10 +69,10 @@ export async function POST(req) {
         // Save the complete AI response
         chatRecord.messages.push({
           content: fullResponse,
-          role: "assistant",
+          role: 'assistant'
         });
         await chatRecord.save();
-      },
+      }
     });
 
     // Get AI response as stream
@@ -92,16 +84,17 @@ export async function POST(req) {
 
     // Pipe through transform stream
     const stream = response.body.pipeThrough(transformStream);
-
+    
     return new Response(stream, {
       headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
       },
     });
+
   } catch (error) {
-    console.error("Chat API Error:", error);
+    console.error('Chat API Error:', error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -121,7 +114,7 @@ export async function GET(req) {
 
     return NextResponse.json(userChats);
   } catch (error) {
-    console.error("Get Chats Error:", error);
+    console.error('Get Chats Error:', error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
