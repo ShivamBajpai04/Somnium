@@ -1,15 +1,7 @@
-import { Inter } from "next/font/google"
 import "./globals.css"
 import {
   ClerkProvider,
-  SignInButton,
-  SignedIn,
-  SignedOut,
-  UserButton
 } from '@clerk/nextjs'
-import { Button } from "@/components/ui/button"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
   title: "CHO-2 AI Chat",
@@ -23,13 +15,7 @@ export default function RootLayout({ children }) {
         <head>
           <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
         </head>
-        <body className={inter.className}>
-          <div className="absolute top-4 right-4 z-50">
-
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
-          </div>
+        <body>
           <main>
             {children}
           </main>
